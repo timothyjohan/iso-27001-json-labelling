@@ -160,7 +160,7 @@ function App() {
   const handleUpload = async (e) => {
     const formData = new FormData();
     formData.append("file", e.target.files[0]); // name must be 'file'
-    const res = await axios.post("http://localhost:3001/upload", formData);
+    const res = await axios.post(`${import.meta.env.VITE_API_URL}/upload`, formData);
     setPdfText(res.data.text);
   };
 
@@ -346,10 +346,10 @@ function App() {
 
             // Submit to backend
             try {
-              const res = await axios.post(
-                "http://localhost:3001/submit",
+                const res = await axios.post(
+                `${import.meta.env.VITE_API_URL}/submit`,
                 jsonOutput
-              );
+                );
               if (res.data.success) {
                 alert("Submitted successfully!");
 
