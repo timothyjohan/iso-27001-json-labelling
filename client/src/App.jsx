@@ -173,24 +173,18 @@ function App() {
   const addProblem = () => {
     setProblems([...problems, { control: "", issue: "" }]);
   };
-
+  const normalizedPdfText = pdfText.replace(/[‘’]/g, "'");
   const jsonOutput = {
     messages: [
       {
         role: "user",
-        content: `(control ${affectedControls
-          .filter((c) => c) // remove empty
-          .sort() // optional: keep consistent order
-          .join(", ")}) ${pdfText}`,
+        content: `(control ${affectedControls.join(", ")}) ${normalizedPdfText}`,
       },
       {
         role: "assistant",
-        content: {
-          result,
-          problems,
-        },
-      },
-    ],
+        content: JSON.stringify({ result, problems }, null, 2) // ✅ this is the key line
+      }
+    ]
   };
   
 
@@ -260,7 +254,7 @@ function App() {
 
         {/* Problems List */}
         {problems.map((p, i) => (
-          <div key={i} className="mb-4 border p-4 rounded bg-gray-50">
+          <div key={i} className="mb-4 border p-4 rounded bg-gray-50 relative">
             <label className="block font-semibold mb-1">Control</label>
             <select
               value={p.control}
@@ -286,6 +280,17 @@ function App() {
               onChange={(e) => handleProblemChange(i, "issue", e.target.value)}
               className="block w-full border p-2 rounded resize-none"
             />
+
+            {/* Remove button */}
+            <button
+              type="button"
+              onClick={() =>
+                setProblems((prev) => prev.filter((_, idx) => idx !== i))
+              }
+              className="absolute top-2 right-2 text-red-600 hover:text-red-800 text-sm"
+            >
+              Remove ✖
+            </button>
           </div>
         ))}
 
@@ -294,6 +299,76 @@ function App() {
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           + Add Problem
+        </button>
+
+        <br />
+        {/* Submit Button */}
+        <button
+          onClick={async () => {
+            // Validation checks
+            if (affectedControls.length === 0) {
+              alert("Please select at least one affected control.");
+              return;
+            }
+
+            if (!pdfText.trim()) {
+              alert("Please upload and extract a PDF or Word document first.");
+              return;
+            }
+
+            if (result === "Invalid") {
+              const validProblems = problems.filter(
+                (p) => p.control && p.issue.trim()
+              );
+              if (validProblems.length === 0) {
+                alert(
+                  "Please provide at least one valid problem if the result is Invalid."
+                );
+                return;
+              }
+            }
+
+            const normalizedPdfText = pdfText.replace(/[‘’]/g, "'");
+            // Build JSON
+            const jsonOutput = {
+              messages: [
+                {
+                  role: "user",
+                  content: `(control ${affectedControls.join(", ")}) ${normalizedPdfText}`,
+                },
+                {
+                  role: "assistant",
+                  content: JSON.stringify({ result, problems }, null, 2) // ✅ this is the key line
+                }
+              ]
+            };
+            
+
+            // Submit to backend
+            try {
+              const res = await axios.post(
+                "http://localhost:3001/submit",
+                jsonOutput
+              );
+              if (res.data.success) {
+                alert("Submitted successfully!");
+
+                // Clear form after submit
+                setPdfText("");
+                setAffectedControls([]);
+                setProblems([{ control: "", issue: "" }]);
+                setResult("Invalid");
+              } else {
+                alert("Submission failed.");
+              }
+            } catch (err) {
+              console.error(err);
+              alert("Error submitting data.");
+            }
+          }}
+          className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+        >
+          ✅ Submit to Dataset
         </button>
 
         {/* JSON Output */}
