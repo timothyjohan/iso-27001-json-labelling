@@ -1,7 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 
-function App() {
+function LabelingTool() {
   const [pdfText, setPdfText] = useState("");
   const [result, setResult] = useState("Invalid");
   const [problems, setProblems] = useState([{ control: "", issue: "" }]);
@@ -381,4 +381,4 @@ function App() {
   );
 }
 
-export default App;
+export default LabelingTool;

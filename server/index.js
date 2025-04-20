@@ -70,6 +70,24 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+app.get('/dataset', async (req, res) => {
+  const filePath = path.join(__dirname, 'data', 'datasetv1.jsonl');
+
+  try {
+    const lines = await fs.readFile(filePath, 'utf8');
+    const jsonArray = lines
+      .split('\n')
+      .filter((line) => line.trim() !== '')
+      .map((line) => JSON.parse(line));
+
+    res.json(jsonArray);
+  } catch (err) {
+    console.error('[ERROR] Reading dataset:', err);
+    res.status(500).json({ error: 'Failed to read dataset' });
+  }
+});
+
+
 app.listen(3001, () => {
   console.log('✅ Server running');
 });
