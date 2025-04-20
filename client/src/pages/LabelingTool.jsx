@@ -4,7 +4,7 @@ import axios from "axios";
 function LabelingTool() {
   const [pdfText, setPdfText] = useState("");
   const [result, setResult] = useState("Invalid");
-  const [problems, setProblems] = useState([{ control: "", issue: "" }]);
+  const [details, setDetails] = useState([{ control: "", issue: "" }]);
   const [affectedControls, setAffectedControls] = useState([]);
 
   const allControls = [
@@ -165,13 +165,13 @@ function LabelingTool() {
   };
 
   const handleProblemChange = (index, field, value) => {
-    const newProblems = [...problems];
-    newProblems[index][field] = value;
-    setProblems(newProblems);
+    const newDetails = [...details];
+    newDetails[index][field] = value;
+    setDetails(newDetails);
   };
 
   const addProblem = () => {
-    setProblems([...problems, { control: "", issue: "" }]);
+    setDetails([...details, { control: "", issue: "" }]);
   };
   const normalizedPdfText = pdfText.replace(/[‘’]/g, "'");
   const jsonOutput = {
@@ -182,7 +182,7 @@ function LabelingTool() {
       },
       {
         role: "assistant",
-        content: JSON.stringify({ result, problems }, null, 2) // ✅ this is the key line
+        content: JSON.stringify({ result, details }, null, 2) // ✅ this is the key line
       }
     ]
   };
@@ -252,8 +252,8 @@ function LabelingTool() {
           </select>
         </label>
 
-        {/* Problems List */}
-        {problems.map((p, i) => (
+        {/* Details List */}
+        {details.map((p, i) => (
           <div key={i} className="mb-4 border p-4 rounded bg-gray-50 relative">
             <label className="block font-semibold mb-1">Control</label>
             <select
@@ -285,7 +285,7 @@ function LabelingTool() {
             <button
               type="button"
               onClick={() =>
-                setProblems((prev) => prev.filter((_, idx) => idx !== i))
+                setDetails((prev) => prev.filter((_, idx) => idx !== i))
               }
               className="absolute top-2 right-2 text-red-600 hover:text-red-800 text-sm"
             >
@@ -317,10 +317,10 @@ function LabelingTool() {
             }
 
             if (result === "Invalid") {
-              const validProblems = problems.filter(
+              const validDetails = details.filter(
                 (p) => p.control && p.issue.trim()
               );
-              if (validProblems.length === 0) {
+              if (validDetails.length === 0) {
                 alert(
                   "Please provide at least one valid problem if the result is Invalid."
                 );
@@ -338,7 +338,7 @@ function LabelingTool() {
                 },
                 {
                   role: "assistant",
-                  content: JSON.stringify({ result, problems }, null, 2) // ✅ this is the key line
+                  content: JSON.stringify({ result, details }, null, 2) // ✅ this is the key line
                 }
               ]
             };
@@ -356,7 +356,7 @@ function LabelingTool() {
                 // Clear form after submit
                 setPdfText("");
                 setAffectedControls([]);
-                setProblems([{ control: "", issue: "" }]);
+                setDetails([{ control: "", issue: "" }]);
                 setResult("Invalid");
               } else {
                 alert("Submission failed.");
