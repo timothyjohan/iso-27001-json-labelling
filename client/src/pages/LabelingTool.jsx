@@ -333,15 +333,26 @@ function LabelingTool() {
             const jsonOutput = {
               messages: [
                 {
+                  role: "system",
+                  content: "You are an AI assistant that analyzes ISO/IEC 27001 control mappings and provides validation in structured JSON format. Always respond with valid, minified JSON in the following structure:\n\n{\n  \"result\": \"Valid\" | \"Invalid\",\n  \"details\": [\n    {\n      \"control\": \"A.5.1\",\n      \"issue\": \"...\"\n    },\n    ...\n  ]\n}\n\nIf the result is 'Valid', return an empty array for details. Do not include any explanations outside the JSON."
+                },
+                {
                   role: "user",
                   content: `(control ${affectedControls.join(", ")}) ${normalizedPdfText}`,
                 },
                 {
                   role: "assistant",
-                  content: JSON.stringify({ result, details }, null, 2) // ✅ this is the key line
+                  content: JSON.stringify({
+                    result,
+                    details: result === "Valid"
+                      ? []
+                      : details.filter((d) => d.control && d.issue.trim())
+                  }, null, 2)
                 }
               ]
             };
+            
+            
             
 
             // Submit to backend
