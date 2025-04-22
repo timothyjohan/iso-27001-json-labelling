@@ -101,8 +101,13 @@ export default function LabeledViewer() {
       <div className="space-y-4">
         {currentEntries.map((entry, i) => {
           const realIndex = startIndex + i;
-          const userText = entry.messages[0]?.content || "";
-          const assistantText = entry.messages[1]?.content || "";
+          const userMsg = entry.messages.find((m) => m.role === "user");
+          const assistantMsg = entry.messages.find(
+            (m) => m.role === "assistant"
+          );
+
+          const userText = userMsg?.content || "";
+          const assistantText = assistantMsg?.content || "";
           const isExpanded = expandedIndices.has(realIndex);
           const shouldTruncate = userText.length > 500;
 
@@ -111,7 +116,7 @@ export default function LabeledViewer() {
               key={realIndex}
               className="border border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white"
             >
-              {/* Header with entry number */}
+              {/* Entry Number Header */}
               <div className="bg-gray-200 px-4 py-2 flex justify-between items-center border-b border-gray-300">
                 <span className="font-semibold text-gray-800">
                   # {realIndex + 1}
@@ -123,7 +128,7 @@ export default function LabeledViewer() {
 
               {/* Prompt Block */}
               <div className="bg-blue-50 px-4 py-2 border-b border-gray-300">
-                <span className="font-semibold text-blue-800">🟦 Prompt</span>
+                <span className="font-semibold text-blue-800">🧑‍💼 Prompt</span>
               </div>
               <pre className="px-4 py-3 whitespace-pre-wrap text-gray-800 max-h-64 overflow-y-auto bg-white">
                 {isExpanded || !shouldTruncate
@@ -144,7 +149,7 @@ export default function LabeledViewer() {
               {/* Response Block */}
               <div className="bg-green-50 px-4 py-2 border-t border-gray-300">
                 <span className="font-semibold text-green-800">
-                  ✅ Response
+                  🤖 Assistant
                 </span>
               </div>
               <pre className="px-4 py-3 whitespace-pre-wrap text-gray-800 max-h-64 overflow-y-auto bg-white">
