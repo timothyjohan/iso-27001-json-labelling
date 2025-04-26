@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 
 function LabelingTool() {
@@ -6,6 +6,8 @@ function LabelingTool() {
   const [result, setResult] = useState("Invalid");
   const [details, setDetails] = useState([{ control: "", issue: "" }]);
   const [affectedControls, setAffectedControls] = useState([]);
+  const isEditing = !!localStorage.getItem("editData");
+  const editIndex = parseInt(localStorage.getItem("editIndex"), 10);
 
   const allControls = [
     // A.5 Organizational Controls
@@ -160,7 +162,10 @@ function LabelingTool() {
   const handleUpload = async (e) => {
     const formData = new FormData();
     formData.append("file", e.target.files[0]); // name must be 'file'
-    const res = await axios.post(`${import.meta.env.VITE_API_URL}/upload`, formData);
+    const res = await axios.post(
+      `${import.meta.env.VITE_API_URL}/upload`,
+      formData
+    );
     setPdfText(res.data.text);
   };
 
@@ -178,20 +183,54 @@ function LabelingTool() {
     messages: [
       {
         role: "user",
-        content: `(control ${affectedControls.join(", ")}) ${normalizedPdfText}`,
+        content: `(control ${affectedControls.join(
+          ", "
+        )}) ${normalizedPdfText}`,
       },
       {
         role: "assistant",
-        content: JSON.stringify({ result, details }, null, 2) // ✅ this is the key line
-      }
-    ]
+        content: JSON.stringify({ result, details }, null, 2), // ✅ this is the key line
+      },
+    ],
   };
-  
+
+  useEffect(() => {
+    const editData = localStorage.getItem("editData");
+    if (editData) {
+      const parsed = JSON.parse(editData);
+      const userContent =
+        parsed.messages.find((m) => m.role === "user")?.content || "";
+      const assistantContent =
+        parsed.messages.find((m) => m.role === "assistant")?.content || "";
+
+      const matchControls = userContent.match(/\(control (.*?)\)/);
+      const controls = matchControls
+        ? matchControls[1].split(",").map((c) => c.trim())
+        : [];
+
+      let parsedAssistant;
+      try {
+        parsedAssistant = JSON.parse(assistantContent);
+      } catch {
+        parsedAssistant = { result: "Invalid", details: [] };
+      }
+
+      setPdfText(userContent.replace(/\(control (.*?)\)/, "").trim());
+      setAffectedControls(controls);
+      setResult(parsedAssistant.result || "Invalid");
+      setDetails(parsedAssistant.details || []);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 text-gray-900">
       <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-md p-6">
         <h1 className="text-2xl font-bold mb-4">PDF Reviewer Interface</h1>
+        {isEditing && (
+          <div className="mb-4 p-2 bg-yellow-100 text-yellow-800 rounded">
+            Editing entry #{editIndex + 1}
+          </div>
+        )}
 
         {/* File Upload */}
         <input
@@ -305,36 +344,30 @@ function LabelingTool() {
         {/* Submit Button */}
         <button
           onClick={async () => {
-            // Validation checks
             if (affectedControls.length === 0) {
               alert("Please select at least one affected control.");
               return;
             }
-
             if (!pdfText.trim()) {
-              alert("Please upload and extract a PDF or Word document first.");
+              alert("Please upload and extract a document first.");
               return;
             }
-
             if (result === "Invalid") {
-              const validDetails = details.filter(
-                (p) => p.control && p.issue.trim()
-              );
+              const validDetails = details.filter((d) => d.control && d.issue.trim());
               if (validDetails.length === 0) {
-                alert(
-                  "Please provide at least one valid problem if the result is Invalid."
-                );
+                alert("Please provide at least one valid detail if result is Invalid.");
                 return;
               }
             }
-
+          
             const normalizedPdfText = pdfText.replace(/[‘’]/g, "'");
-            // Build JSON
-            const jsonOutput = {
+          
+            const newEntry = {
               messages: [
                 {
                   role: "system",
-                  content: "You are an AI assistant that analyzes ISO/IEC 27001 control mappings and provides validation in structured JSON format. Always respond with valid, minified JSON in the following structure:\n\n{\n  \"result\": \"Valid\" | \"Invalid\",\n  \"details\": [\n    {\n      \"control\": \"A.5.1\",\n      \"issue\": \"...\"\n    },\n    ...\n  ]\n}\n\nIf the result is 'Valid', return an empty array for details. Do not include any explanations outside the JSON."
+                  content:
+                    "You are an AI assistant that analyzes ISO/IEC 27001 control mappings and provides validation in structured JSON format. Respond with valid JSON only."
                 },
                 {
                   role: "user",
@@ -351,32 +384,34 @@ function LabelingTool() {
                 }
               ]
             };
-            
-            
-            
-
-            // Submit to backend
+          
             try {
-                const res = await axios.post(
-                `${import.meta.env.VITE_API_URL}/submit`,
-                jsonOutput
-                );
-              if (res.data.success) {
-                alert("Submitted successfully!");
-
-                // Clear form after submit
-                setPdfText("");
-                setAffectedControls([]);
-                setDetails([{ control: "", issue: "" }]);
-                setResult("Invalid");
+              if (isEditing) {
+                await axios.post(`${import.meta.env.VITE_API_URL}/update`, {
+                  index: editIndex,
+                  entry: newEntry
+                });
+                alert("Updated successfully!");
+                localStorage.removeItem("editData");
+                localStorage.removeItem("editIndex");
               } else {
-                alert("Submission failed.");
+                await axios.post(`${import.meta.env.VITE_API_URL}/submit`, newEntry);
+                alert("Submitted successfully!");
               }
+          
+              // Clear form
+              setPdfText("");
+              setAffectedControls([]);
+              setDetails([{ control: "", issue: "" }]);
+              setResult("Invalid");
+          
+              window.location.href = "/viewer"; // go back to viewer
             } catch (err) {
               console.error(err);
               alert("Error submitting data.");
             }
           }}
+          
           className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
         >
           ✅ Submit to Dataset

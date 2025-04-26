@@ -87,6 +87,29 @@ app.get('/dataset', async (req, res) => {
   }
 });
 
+app.post('/update', async (req, res) => {
+  const { index, entry } = req.body;
+  const jsonlPath = path.join(__dirname, 'data', 'datasetv1.jsonl');
+
+  try {
+    let lines = (await fs.readFile(jsonlPath, 'utf8'))
+      .split('\n')
+      .filter(Boolean); // filter empty lines
+
+    if (index < 0 || index >= lines.length) {
+      return res.status(400).json({ success: false, error: 'Invalid index' });
+    }
+
+    lines[index] = JSON.stringify(entry); // replace the specific line
+
+    await fs.writeFile(jsonlPath, lines.join('\n') + '\n', 'utf8');
+
+    res.status(200).json({ success: true, message: 'Entry updated.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: 'Failed to update file.' });
+  }
+});
 
 app.listen(3001, () => {
   console.log('✅ Server running');
