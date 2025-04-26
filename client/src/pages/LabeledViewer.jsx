@@ -97,18 +97,34 @@ export default function LabeledViewer() {
   };
   const handleDownload = () => {
     const blob = new Blob(
-      entries.map((e) => (JSON.stringify(e) + '\n')),
-      { type: 'text/plain;charset=utf-8' }
+      entries.map((e) => JSON.stringify(e) + "\n"),
+      { type: "text/plain;charset=utf-8" }
     );
-  
+
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = 'datasetv1.jsonl';
+    link.download = "datasetv1.jsonl";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleDelete = async (indexToDelete) => {
+    const confirmed = window.confirm(`Are you sure you want to delete entry #${indexToDelete + 1}?`);
+    if (!confirmed) return;
+  
+    try {
+      await axios.post(`${import.meta.env.VITE_API_URL}/delete`, { index: indexToDelete });
+      alert("Entry deleted successfully!");
+  
+      // Refresh the page
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      alert("Failed to delete entry.");
+    }
   };
   
 
@@ -209,7 +225,7 @@ export default function LabeledViewer() {
                 {assistantText}
               </pre>
 
-              <div className="px-4 py-2 border-t flex justify-end bg-gray-50">
+              <div className="px-4 py-2 border-t flex justify-end gap-2 bg-gray-50">
                 <button
                   onClick={() => {
                     localStorage.setItem("editData", JSON.stringify(entry));
@@ -218,7 +234,14 @@ export default function LabeledViewer() {
                   }}
                   className="bg-yellow-400 text-gray-800 px-4 py-2 rounded hover:bg-yellow-500 text-sm"
                 >
-                  ✏️ Edit This Entry
+                  ✏️ Edit
+                </button>
+
+                <button
+                  onClick={() => handleDelete(realIndex)}
+                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 text-sm"
+                >
+                  🗑️ Delete
                 </button>
               </div>
             </div>
