@@ -207,23 +207,39 @@ function TestModel() {
         {
           model:
             "ft:gpt-4o-mini-2024-07-18:feha-prod:timothy-iso-jsonv1-1:BR0paFtD",
+          temperature: 0.2,
+          top_p: 1.0,
+          presence_penalty: 0,
+          frequency_penalty: 0,
+          max_tokens: 10000,
           messages: [
             {
               role: "system",
               content: `You are an AI assistant that analyzes ISO/IEC 27001 control mappings and provides validation in structured JSON format. Always respond with valid, minified JSON in the following structure:
-  
-  {
-    "result": "Valid" | "Invalid",
-    "details": [
-      {
-        "control": "A.5.1",
-        "issue": "..."
-      },
-      ...
-    ]
-  }
-  
-  If the result is 'Valid', return an empty array for details. Do not include any explanations outside the JSON.`,
+
+{
+  "result": "Valid" | "Invalid",
+  "confidence": "XX%",
+  "details": [
+    {
+      "control": "A.5.1",
+      "issue": "..."
+    },
+    ...
+  ]
+}
+
+- If the result is "Valid", you must return an empty array for "details".
+- Always include the "confidence" field, regardless of whether the result is "Valid" or "Invalid".
+- The "confidence" must reflect your assessment certainty based on the clarity, completeness, and relevance of the document content.
+- Use a percentage between 10% and 100%, where:
+  - 95%–100% = Very confident, strong evidence
+  - 80%–94% = Reasonably confident but some uncertainty
+  - 60%–79% = Moderate doubts due to incomplete evidence
+  - 40%–59% = Significant doubts, unclear or insufficient data
+  - Below 40% = Very low confidence, mostly missing or wrong information
+- Do not include any explanations, comments, or any text outside the JSON output.
+`,
             },
             {
               role: "user",
@@ -355,15 +371,36 @@ function TestModel() {
           <div className="mt-8">
             <h2 className="text-xl font-bold mb-4">🎯 Model Result</h2>
 
-            {response.result === "Valid" ? (
-              <div className="bg-green-100 text-green-800 p-4 rounded font-semibold text-center">
-                ✅ Document is VALID
-              </div>
-            ) : (
+            {/* Result Display */}
+            <div className="flex items-center gap-4 mb-4">
+              {response.result === "Valid" ? (
+                <div className="bg-green-100 text-green-800 px-4 py-2 rounded font-semibold">
+                  ✅ Valid
+                </div>
+              ) : (
+                <div className="bg-red-100 text-red-800 px-4 py-2 rounded font-semibold">
+                  ❌ Invalid
+                </div>
+              )}
+
+              {/* Confidence Display */}
+              <span
+                className={`px-3 py-1 text-sm rounded-full font-semibold ${
+                  parseInt(response.confidence) >= 90
+                    ? "bg-green-200 text-green-800"
+                    : parseInt(response.confidence) >= 60
+                    ? "bg-yellow-200 text-yellow-800"
+                    : "bg-red-200 text-red-800"
+                }`}
+              >
+                🔥 Confidence: {response.confidence}
+              </span>
+            </div>
+
+            {/* If Invalid, Show Details */}
+            {response.result === "Invalid" && (
               <div className="bg-red-100 text-red-800 p-4 rounded">
-                <h3 className="text-lg font-semibold mb-2">
-                  ❌ Document is INVALID
-                </h3>
+                <h3 className="text-lg font-semibold mb-2">Details:</h3>
                 <ul className="list-disc list-inside space-y-2">
                   {response.details.map((detail, idx) => (
                     <li key={idx}>
