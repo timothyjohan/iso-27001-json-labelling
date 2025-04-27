@@ -21,6 +21,9 @@ export default function Navbar() {
       >
         📂 Labeled Viewer
       </Link>
+      <Link to="/test" className="hover:underline">
+        Test Model
+      </Link>
     </nav>
   );
 }
