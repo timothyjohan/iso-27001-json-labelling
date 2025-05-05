@@ -206,7 +206,7 @@ function TestModel() {
         "https://api.openai.com/v1/chat/completions",
         {
           model:
-            "ft:gpt-4o-mini-2024-07-18:feha-prod:timothy-iso-jsonv1-1:BR0paFtD",
+            "ft:gpt-4o-mini-2024-07-18:timothy:timothy-iso-jsonv1-1:BTN11I1O",
           temperature: 0.2,
           top_p: 1.0,
           presence_penalty: 0,
