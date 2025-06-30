@@ -4,7 +4,9 @@ import axios from "axios";
 function LabelingTool() {
   const [pdfText, setPdfText] = useState("");
   const [result, setResult] = useState("Invalid");
-  const [details, setDetails] = useState([{ control: "", issue: "" }]);
+  const [details, setDetails] = useState([
+    { control: "", title: "", issue: "" },
+  ]);
   const [affectedControls, setAffectedControls] = useState([]);
   const isEditing = !!localStorage.getItem("editData");
   const editIndex = parseInt(localStorage.getItem("editIndex"), 10);
@@ -172,24 +174,45 @@ function LabelingTool() {
   const handleProblemChange = (index, field, value) => {
     const newDetails = [...details];
     newDetails[index][field] = value;
+
+    if (field === "control") {
+      const selectedControl = allControls.find((c) => c.id === value);
+      newDetails[index].title = selectedControl ? selectedControl.title : "";
+    }
+
     setDetails(newDetails);
   };
 
   const addProblem = () => {
-    setDetails([...details, { control: "", issue: "" }]);
+    setDetails([...details, { control: "", title: "", issue: "" }]);
   };
+
+  const formattedControls = affectedControls
+    .map((id) => {
+      const control = allControls.find((c) => c.id === id);
+      // Return "ID Title" if found, otherwise just the ID as a fallback
+      return control ? `${control.id} ${control.title}` : id;
+    })
+    .join(", ");
+
   const normalizedPdfText = pdfText.replace(/[‘’]/g, "'");
+
   const jsonOutput = {
     messages: [
       {
         role: "user",
-        content: `(control ${affectedControls.join(
-          ", "
-        )}) ${normalizedPdfText}`,
+        content: `(control ${formattedControls}) ${normalizedPdfText}`,
       },
       {
         role: "assistant",
-        content: JSON.stringify({ result, details }, null, 2), // ✅ this is the key line
+        content: JSON.stringify(
+          {
+            result,
+            details: details.map(({ control, issue }) => ({ control, issue })),
+          },
+          null,
+          2
+        ),
       },
     ],
   };
@@ -204,9 +227,16 @@ function LabelingTool() {
         parsed.messages.find((m) => m.role === "assistant")?.content || "";
 
       const matchControls = userContent.match(/\(control (.*?)\)/);
+
+      // --- THIS IS THE UPDATED LOGIC ---
       const controls = matchControls
-        ? matchControls[1].split(",").map((c) => c.trim())
+        ? matchControls[1].split(",").map((c) => {
+            // c is a string like " A.5.1 Policies for information security"
+            // We trim it, split by space, and take the first part (the ID)
+            return c.trim().split(" ")[0];
+          })
         : [];
+      // --- END OF UPDATE ---
 
       let parsedAssistant;
       try {
@@ -216,7 +246,7 @@ function LabelingTool() {
       }
 
       setPdfText(userContent.replace(/\(control (.*?)\)/, "").trim());
-      setAffectedControls(controls);
+      setAffectedControls(controls); // This will now correctly set ['A.5.1', 'A.5.8']
       setResult(parsedAssistant.result || "Invalid");
       setDetails(parsedAssistant.details || []);
     }
@@ -344,6 +374,7 @@ function LabelingTool() {
         {/* Submit Button */}
         <button
           onClick={async () => {
+            // --- No changes needed in the validation part ---
             if (affectedControls.length === 0) {
               alert("Please select at least one affected control.");
               return;
@@ -353,65 +384,91 @@ function LabelingTool() {
               return;
             }
             if (result === "Invalid") {
-              const validDetails = details.filter((d) => d.control && d.issue.trim());
+              const validDetails = details.filter(
+                (d) => d.control && d.issue.trim()
+              );
               if (validDetails.length === 0) {
-                alert("Please provide at least one valid detail if result is Invalid.");
+                alert(
+                  "Please provide at least one valid detail if result is Invalid."
+                );
                 return;
               }
             }
-          
+
+            // --- Create the formatted strings as discussed ---
+            const formattedControls = affectedControls
+              .map((id) => {
+                const control = allControls.find((c) => c.id === id);
+                return control ? `${control.id} ${control.title}` : id;
+              })
+              .join(", ");
+
             const normalizedPdfText = pdfText.replace(/[‘’]/g, "'");
-          
+
+            // --- THIS IS THE KEY CHANGE ---
+            // Modify this map function to combine the control and title fields
+            const finalDetails = details
+              .filter((d) => d.control && d.issue.trim())
+              .map(({ control, title, issue }) => ({
+                control: `${control} ${title}`, // Combines ID and title here
+                issue,
+              }));
+
             const newEntry = {
               messages: [
                 {
                   role: "system",
                   content:
-                    "You are an AI assistant that analyzes ISO/IEC 27001 control mappings and provides validation in structured JSON format. Respond with valid JSON only."
+                    "You are an AI assistant that analyzes ISO/IEC 27001 control mappings and provides validation in structured JSON format. Respond with valid JSON only.",
                 },
                 {
                   role: "user",
-                  content: `(control ${affectedControls.join(", ")}) ${normalizedPdfText}`,
+                  // Use the correctly formatted string with IDs and Titles
+                  content: `(control ${formattedControls}) ${normalizedPdfText}`,
                 },
                 {
                   role: "assistant",
-                  content: JSON.stringify({
-                    result,
-                    details: result === "Valid"
-                      ? []
-                      : details.filter((d) => d.control && d.issue.trim())
-                  }, null, 2)
-                }
-              ]
+                  content: JSON.stringify(
+                    {
+                      result,
+                      details: finalDetails, // Use the updated finalDetails
+                    },
+                    null,
+                    2
+                  ),
+                },
+              ],
             };
-          
+
             try {
               if (isEditing) {
                 await axios.post(`${import.meta.env.VITE_API_URL}/update`, {
                   index: editIndex,
-                  entry: newEntry
+                  entry: newEntry,
                 });
                 alert("Updated successfully!");
                 localStorage.removeItem("editData");
                 localStorage.removeItem("editIndex");
               } else {
-                await axios.post(`${import.meta.env.VITE_API_URL}/submit`, newEntry);
+                await axios.post(
+                  `${import.meta.env.VITE_API_URL}/submit`,
+                  newEntry
+                );
                 alert("Submitted successfully!");
               }
-          
+
               // Clear form
               setPdfText("");
               setAffectedControls([]);
-              setDetails([{ control: "", issue: "" }]);
+              setDetails([{ control: "", title: "", issue: "" }]);
               setResult("Invalid");
-          
+
               window.location.href = "/viewer"; // go back to viewer
             } catch (err) {
               console.error(err);
               alert("Error submitting data.");
             }
           }}
-          
           className="mt-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
         >
           ✅ Submit to Dataset
